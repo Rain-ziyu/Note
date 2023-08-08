@@ -712,3 +712,25 @@ go mod tidy
 运⾏成功：
 
 ![](https://prod.huayu.asia:9000/picgo/2023/08/03/20230803165456.png)
+
+# Dubbo3.2.x解决JDK17问题
+
+在Dubbo3.2.x之前使用dubbo-spring-boot-starter与JDK17时会出现因为JDK9之后的安全封装，导致java.lang包下的非公开符号不能被随意反射，启动或者运行中出现问题：
+
+```shell
+org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'ServiceBean:com.platform.ahj.tenant.provider.TenantDetailProvider::': Invocation of init method failed; nested exception is java.lang.IllegalStateException: Failed to create adaptive instance: java.lang.IllegalStateException: Can't create adaptive extension interface org.apache.dubbo.rpc.Protocol, cause: Unable to make protected final java.lang.Class java.lang.ClassLoader.defineClass(java.lang.String,byte[],int,int,java.security.ProtectionDomain) throws java.lang.ClassFormatError accessible: module java.base does not "opens java.lang" to unnamed module @1f2586d6
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1804) ~[spring-beans-5.3.22.jar:5.3.22]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:620) ~[spring-beans-5.3.22.jar:5.3.22]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:542) ~[spring-beans-5.3.22.jar:5.3.22]
+```
+
+Dubbo3.2.x之前使用--add-opens把需要的封装打破，允许反射即可继续使用，但是需要在启动命令中增加vm选项
+
+```sh
+--add-opens java.base/java.math=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED
+```
+
+但是在Dubbo3.2.x之后官方说可以原生支持JDK17并且支持native打包，一般我们**直接升级dubbo-spring-boot-starter依赖版本即可**。
+
+如果升级之后仍存在冲突问题，可以查看一下依赖中实际使用的 **javassist**依赖到底是哪个版本是否是dubbo-spring-boot-starter所传递的新版，一般是因为该依赖冲突导致的。
+
