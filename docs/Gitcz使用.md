@@ -6,6 +6,14 @@
 npm install -g commitizen
 ```
 
+# commitizen初始化
+
+```shell
+commitizen init cz-conventional-changelog --save --save-exact
+```
+
+
+
 # 全局安装changelog
 
 ```
