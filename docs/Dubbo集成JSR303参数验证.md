@@ -6,6 +6,8 @@
 
 当然Dubbo官网表示自己支持JSR303标准的校验，但是因为Dubbo相比SpringBootWeb那样简单的引入即可完成，因为Dubbo的**版本变化问题**以及**序列化问题**等。
 
+[Demo参考地址](https://github.com/Rain-ziyu/dubbo-validation)
+
 # 依赖选择
 
 因为Dubbo项目往往是三个模块，一个提供接口的Common模块，一个提供实际接口的Provider模块，一个调用方的Consumer模块。
