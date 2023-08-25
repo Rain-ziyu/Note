@@ -4253,3 +4253,240 @@ func main() {
 }
 ```
 
+# 继承
+
+Go语言的继承并不是借助关键字实现对象之间的继承，而是依赖匿名结构体来实现继承关系。
+
+基本语法如下：
+
+```go
+type Student struct {
+	Name string
+	Age int
+	Score int
+}
+//小学生
+type Pupil struct { 
+	Student //嵌入了Student匿名结构体
+}
+
+//大学生
+type Graduate struct {
+	Student //嵌入了Student匿名结构体
+}
+```
+
+以上即产生了两个继承自Student的子类
+
+## 继承方法调用
+
+子类可以拥有自己的属性与方法，也可以使用`子类.父类.方法名`的方式来调用父类方法。（Go一般是结构体与嵌套结构体来称呼这种关系），也可以直接调用父类方法。
+
+```go
+package main
+
+import (
+	"fmt"
+)
+
+
+//编写一个学生考试系统
+
+type Student struct {
+	Name string
+	Age int
+	Score int
+}
+
+//将Pupil 和 Graduate 共有的方法也绑定到 *Student
+func (stu *Student) ShowInfo() {
+	fmt.Printf("学生名=%v 年龄=%v 成绩=%v\n", stu.Name, stu.Age, stu.Score)
+}
+func (stu *Student) SetScore(score int) {
+	//业务判断
+	stu.Score = score
+}
+
+//给 *Student 增加一个方法，那么 Pupil 和 Graduate都可以使用该方法
+func (stu *Student) GetSum(n1 int, n2 int) int {
+	return n1 + n2
+}
+
+//小学生
+type Pupil struct { 
+	Student //嵌入了Student匿名结构体
+}
+
+//显示他的成绩
+
+//这时Pupil结构体特有的方法，保留
+func (p *Pupil) testing() {
+	fmt.Println("小学生正在考试中.....")
+}
+
+//大学生, 研究生。。
+
+
+//大学生
+type Graduate struct {
+	Student //嵌入了Student匿名结构体
+}
+
+//显示他的成绩
+//这时Graduate结构体特有的方法，保留
+func (p *Graduate) testing() {
+	fmt.Println("大学生正在考试中.....")
+}
+
+//代码冗余.. 高中生....
+
+func main() {
+
+	//当我们对结构体嵌入了匿名结构体使用方法会发生变化
+	pupil := &Pupil{}
+	pupil.Student.Name = "tom~"
+	pupil.Student.Age = 8
+	pupil.testing() 
+	pupil.Student.SetScore(70)
+	pupil.Student.ShowInfo()
+	fmt.Println("res=", pupil.Student.GetSum(1, 2))
+
+
+	graduate := &Graduate{}
+	graduate.Student.Name = "mary~"
+	graduate.Student.Age = 28
+	graduate.testing() 
+	graduate.Student.SetScore(90)
+	graduate.Student.ShowInfo()
+	fmt.Println("res=", graduate.Student.GetSum(10, 20))
+}
+```
+
+## 继承关系深入
+
+Go语言的继承是比较松散的，无论父类的方法标识或者字段标识是否是小写（表示是否允许外部访问），子类都可以看见。
+
+```go
+package main
+import (
+	"fmt"
+)
+
+type A struct{
+	Name string
+	age int
+}
+func (a *A) SayOk(){
+	fmt.Println("OK")
+}
+func (a *A) sayHello(){
+	fmt.Println("hello")
+}
+
+type B struct{
+	A
+}
+func main(){
+	var b B
+	b.A.Name = "tom"
+	b.A.age = 19
+	b.A.SayOk()
+	b.A.sayHello()
+	// 简化调用
+	b.A.Name = "tom"
+	b.A.age = 19
+	b.SayOk()
+	b.sayHello()
+}
+```
+
+**并且调用父类方法也是可以简化的，因为B会优先在自己的字段中方法中找，找不到会自动去嵌套的结构体(A)中查找。**找到即调用
+
+**当子类与父类存在相同字段或者相同方法时，采用就近原则，即调用时的类型来决定。如果你想调用父类的同名方法，那么就需要具体到匿名结构体进行调用**
+
+![](https://prod.huayu.asia:9000/picgo/2023/08/25/20230825165550.png)
+
+**如果一个结构体嵌入了两个匿名结构体，并且很巧这两个又有相同的同名方法与字段，这种情况下，必须指定具体的匿名结构体，否则编译出错**
+
+![](https://prod.huayu.asia:9000/picgo/2023/08/25/20230825170309.png)
+
+## 组合关系
+
+**如果我们一个结构体嵌套了一个有名的结构体，那么这种关系不再是继承关系，而是组合关系。**
+
+**即如果想要调用组合关系的方法，那么需要使用字段名进行嵌套结构体的方法调用。**
+
+![](https://prod.huayu.asia:9000/picgo/2023/08/25/20230825170941.png)
+
+## 嵌套结构体初始化值
+
+如果我们想在初始化时直接赋初始值
+
+```go
+package main
+
+type A struct {
+	Name string
+	age  int
+}
+type B struct {
+	Name  string
+	Score string
+}
+type C struct {
+	a A
+	B
+}
+type Goods struct {
+	Name  string
+	Price string
+}
+type Brand struct {
+	Name    string
+	Address string
+}
+type TV struct {
+	Goods
+	Brand
+}
+
+func main() {
+	var c C
+	c.Name = "tom"
+	c.a.age = 10
+	tv := TV{
+		Goods{"电视机001", "5000"},
+		Brand{"海尔", "山东"},
+	}
+	tv.Price = "12"
+	// 第二种写法
+	tv2 := TV{
+		Goods{
+			Name:  "电视机001",
+			Price: "5000",
+		},
+		Brand{
+			Address: "海尔",
+			Name:    "山东",
+		},
+	}
+	tv2.Price = "18"
+}
+
+```
+
+## 嵌套结构体类型指针
+
+我们也可以不嵌套结构体而是嵌套他的结构体指针
+
+![](https://prod.huayu.asia:9000/picgo/2023/08/25/20230825173706.png)
+
+根据打印可以看出其内部的区别，一个是地址，一个是直接数据。
+
+## 结构体内嵌入基本数据类型
+
+![](https://prod.huayu.asia:9000/picgo/2023/08/25/20230825175225.png)
+
+## 多重继承
+
+也就是嵌入多个匿名结构体
