@@ -13,3 +13,7 @@ Git提交信息规范工具 Git cz配合changelog
 # [Dubbo集成JSR303参数验证](/Dubbo集成JSR303参数验证)
 
 Dubbo层的参数验证
+
+# [Go语言笔记](/Go语言笔记)
+
+Go语言基础语法
