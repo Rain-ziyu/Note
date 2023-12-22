@@ -140,7 +140,7 @@ RediSearch 通过提供一种简单且自动的方式在 Redis 哈希上创建�
 
 # 使用索引查询数据
 
-查询所有包含字符串war的数据
+#### 查询所有包含字符串war的数据
 
 ```shell
 FT.SEARCH idx:movie "war"
@@ -176,4 +176,151 @@ FT.SEARCH idx:movie "war"
    12) "906260"
    13) "ibmdb_id"
    14) "tt0086190"
+```
+
+查询会首先返回结果数，之后就是对应的数据的key，在之后就是完整的hash内容
+
+#### 使用参数限制查询返回的字段列表`RETURN`
+
+让我们运行相同的查询，并仅返回标题和release_year：
+
+```shell
+FT.SEARCH idx:movie "war" RETURN 2 title release_year
+
+1) (integer) 2
+2) "movie:11002"
+3) 1) "title"
+   2) "Star Wars: Episode V - The Empire Strikes Back"
+   3) "release_year"
+   4) "1980"
+4) "movie:11005"
+5) 1) "title"
+   2) "Star Wars: Episode VI - Return of the Jedi"
+   3) "release_year"
+   4) "1983"
+```
+
+以上查询都没有指定查询字段，但是仍然查出数据，这是因为 RediSearch 默认情况下会搜索所有 TEXT 字段。在当前索引中，只有标题作为 TEXT 字段出现。
+
+### 针对固定字段进行条件查询
+
+```shell
+FT.SEARCH idx:movie "@title:war" RETURN 2 title release_year
+
+1) (integer) 2
+2) "movie:11002"
+3) 1) "title"
+   2) "Star Wars: Episode V - The Empire Strikes Back"
+   3) "release_year"
+   4) "1980"
+4) "movie:11005"
+5) 1) "title"
+   2) "Star Wars: Episode VI - Return of the Jedi"
+   3) "release_year"
+   4) "1983"
+```
+
+### 查询字符串中包含war但不包含`jedi`
+
+```shell
+FT.SEARCH idx:movie "war -jedi" RETURN 2 title release_year
+
+1) (integer) 1
+2) "movie:11002"
+3) 1) "title"
+   2) "Star Wars: Episode V - The Empire Strikes Back"
+   3) "release_year"
+   4) "1980"
+```
+
+### 模糊（近似）搜索
+
+gdfather这个词包含拼写错误，即完整是Godfather，但是可以使用[模糊匹配](https://oss.redislabs.com/redisearch/Query_Syntax/#fuzzy_matching)来匹配它。模糊匹配是基于[编辑距离](https://en.wikipedia.org/wiki/Levenshtein_distance)（LD）进行的。
+
+```shell
+FT.SEARCH idx:movie " %gdfather% " RETURN 2 title release_year
+
+1) (integer) 1
+2) "movie:11003"
+3) 1) "title"
+   2) "The Godfather"
+   3) "release_year"
+   4) "1972"
+```
+
+### 精确匹配
+
+```shell
+FT.SEARCH idx:movie "@genre:{Thriller}" RETURN 3 title release_year genre
+1) (integer) 1
+2) "movie:11004"
+3) 1) "title"
+   2) "Heat"
+   3) "release_year"
+   4) "1995"
+   5) "genre"
+   6) "Thriller"
+```
+
+### 或语法
+
+```shell
+FT.SEARCH idx:movie "@genre:{Thriller|Action}" RETURN 2 title release_year
+
+1) (integer) 3
+2) "movie:11004"
+3) 1) "title"
+   2) "Heat"
+   3) "release_year"
+   4) "1995"
+4) "movie:11002"
+5) 1) "title"
+   2) "Star Wars: Episode V - The Empire Strikes Back"
+   3) "release_year"
+   4) "1980"
+6) "movie:11005"
+7) 1) "title"
+   2) "Star Wars: Episode VI - Return of the Jedi"
+   3) "release_year"
+   4) "1983"
+```
+
+### 组合多个搜索条件
+
+```shell
+FT.SEARCH idx:movie "@genre:{Thriller|Action} @title:-jedi" RETURN 2 title release_year
+
+1) (integer) 2
+2) "movie:11004"
+3) 1) "title"
+   2) "Heat"
+   3) "release_year"
+   4) "1995"
+4) "movie:11002"
+5) 1) "title"
+   2) "Star Wars: Episode V - The Empire Strikes Back"
+   3) "release_year"
+   4) "1980"
+```
+
+### 范围查询
+
+* 使用`FILTER`参数
+
+```shell
+FT.SEARCH idx:movie * FILTER release_year 1970 1980 RETURN 2 title release_year
+```
+
+或者
+
+* `@field`在查询字符串中使用。
+
+```shell
+FT.SEARCH idx:movie "@release_year:[1970 1980]" RETURN 2 title release_year
+```
+
+要排除某个值，请在 FILTER 或查询字符串中添加该值`(`
+
+```shell
+ FT.SEARCH idx:movie "@release_year:[1970 (1980]" RETURN 2 title release_year
 ```
