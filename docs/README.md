@@ -18,7 +18,7 @@ Dubbo层的参数验证
 
 Go语言基础语法
 
-# [RediSearch](/RedisSearch学习)
+# [RediSearch](/RediSearch学习)
 
 Redis新特性尝鲜
 
