@@ -22,10 +22,10 @@ Go语言基础语法
 
 Redis新特性尝鲜
 
-# [SkyWalking](/SkyWalking K8S环境部署使用)
+# [SkyWalking](/SkyWalkingK8S环境部署使用)
 
 SkyWalking 核心组件架构说名
 
-# [Spring Webflux](/Spring Webflux)
+# [Spring Webflux](/SpringWebflux)
 
 Spring Webflux框架Demo以及核心类
