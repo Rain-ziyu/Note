@@ -52,14 +52,15 @@ import org.javaguy.coolframework.MyClass;
 ```
 
 maven帮我们自动分析加载依赖，但是也并不是我们所有的依赖在任意阶段都需要放到Classpath内或者是传递给依赖方。所以Maven为我们定义了几种依赖范围，分别是compile、test、runtime和provided。
+
 | Scope     | 说明                                 | 示例             |
 |-----------|--------------------------------------|------------------|
 | compile   |在项目的所有 Classpath 中都可用。此外，这些依赖项将传播到依赖项目     | commons-logging |
 | test      | 仅适用于测试编译和执行阶段。此范围不可传递。  | junit            |
 | runtime   | 此范围表示依赖项不是编译所必需的，而是执行所必需的。Maven 在运行时和测试类的classpath中包含具有此范围的依赖项，编译时classpath中不包含该依赖。 | mysql            |
 | provided  | 此范围的依赖项将添加到用于编译和测试的 Classpath 中，而不是运行时 Classpath 中。不传递到依赖方。 | servlet-api      |
-| system    | 表示该依赖不从中央仓库中下载，需要显式提供Jar文件|    |
-| import    | 只有在项目声明为pom时有效，用于标识将匹配的依赖项替换为dependencyManagement中所指定的版本|    |
+| system    | 表示该依赖不从中央仓库中下载，需要显式提供Jar文件| -    |
+| import    | 只有在项目声明为pom时有效，用于标识将匹配的依赖项替换为dependencyManagement中所指定的版本| -   |
 
 还有就是如果你指定了直接依赖项的scope，那么直接依赖项所依赖的间接依赖的scope传递效果如下：（左侧是直接依赖规定的scope。空列表示该scope的间接依赖根本不会向下传递，影响到主项目）
 
