@@ -79,6 +79,7 @@ Maven还规范了整个构建流程中的每一个阶段以及可以做什么。
 使用Maven时，我们首先要了解什么是Maven的生命周期（lifecycle）。
 目前Maven内置三个构建生命周期：default、clean 和 site。default生命周期处理项目部署，clean生命周期处理项目清理，site生命周期处理项目网站的创建。
 Maven的生命周期由一系列阶段（phase）构成，以内置的生命周期default为例[完整生命周期列表](https://maven.apache.org/guides/introduction/introduction-to-the-lifecycle.html#Lifecycle_Reference)，它包含以下phase：
+
 | Phase阶段             | Description描述                                                                                                    |
 |-----------------------|--------------------------------------------------------------------------------------------------------------------|
 | validate              | 验证项目是否正确，以及所有必要的信息是否可用。                |
@@ -118,6 +119,7 @@ package
 
 在phase之下还有一个goal的概念：
 比如针对不同的场景每一个phase之下需要执行不同的操作，比如当packing是jar的时候phase绑定的goal如下：
+
 | Phase阶段             | plugin:goal for the jar packaging (plugin：goal 用于 jar 打包) |
 |-----------------------|-------------------------------------------------------------|
 | process-resources     | resources:resources                                         |
