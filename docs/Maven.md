@@ -139,6 +139,7 @@ package
 但是实际上maven在执行每个phase时他并不知道如何执行具体操作，而是由插件执行触发默认的goal。
 所以使用Maven就是配置好很多插件，然后通过phase调用这个插件。
 而我们日常使用时，Maven为我们内置了一些常用的标准插件：
+
 | Phase阶段             | plugin:goal for the jar packaging (plugin：goal 用于 jar 打包) |
 |-----------------------|-------------------------------------------------------------|
 | process-resources     | resources:resources                                         |
