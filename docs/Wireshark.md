@@ -47,13 +47,13 @@ Wireshark 区分协议（例如 tcp）和协议字段（例如 tcp.port 的 Tcp.
 ###### Unsigned integer
 可以是 8、16、24、32 或 64 位。您可以用十进制、八进制表示整数， 十六进制或二进制。以下显示过滤器是等效的：
 
-ip.len le 1500
+`ip.len le 1500`
 
-ip.len le 02734
+`ip.len le 02734`
 
-ip.len le 0x5dc
+`ip.len le 0x5dc`
 
-ip.len le 0b10111011100
+`ip.len le 0b10111011100`
 
 ###### Signed integer
 可以是 8、16、24、32 或 64 位。与无符号整数一样，您可以使用 十进制、八进制、十六进制或二进制。
