@@ -215,6 +215,7 @@ traceroute 命令通过在回显请求中包含一个生存时间 (TTL) 值，�
 #### 报文内容
 
 ![alt text](./images/Wireshark/ICMPCode.png)
+
 其实ICMP的报文中主要有两个标识Types Code，简要对照表如下：
 
 |   Types   |  Code  | |
