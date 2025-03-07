@@ -61,7 +61,7 @@ AspectJ增强代码编译到到java代码的过程（这个过程称为织入）
 ### GenericApplicationContext的实现类
 
 该类在postProcessBeanFactory时才进行相应的BeanDefinition的加载。
-![](./images/spring/GenericApplicationContext加载.png)
+![](./images/spring/beandefini.png)
 
 但是其实无论是哪个实现最终都是使用内部的scanner与reader进行加载。
 
@@ -422,3 +422,55 @@ Spring解决循环依赖主要是依赖三级缓存，但是的在调用构造�
 * 如果在 <bean> 中指定了该 Bean 的作用范围为 scope="prototype"，则将该 Bean 交给调用者，调用者管理该 Bean 的生命周期，Spring 不再管理该 Bean。
 * 如果 Bean 实现了 DisposableBean 接口，则 Spring 会调用 destory() 方法将 Spring 中的 Bean 销毁；(或者有执行@PreDestroy注解的方法)
 * 如果在配置文件中通过 destory-method 属性指定了 Bean 的销毁方法，则 Spring 将调用该方法对 Bean 进行销毁。
+
+# Spring AOP
+
+## 针对AOP的PostProcessors的BeanDefinition加载
+
+在BeanDefinition加载时即invokeBeanFactoryPostProcessors时注册一个AnnotationAwareAspectJAutoProxyCreator的BeanDefinition。有了这个BeanDefinition就可以在后续的registerBeanPostProcessors阶段实例化并注册所有 BeanPostProcessor（包括 AnnotationAwareAspectJAutoProxyCreator）。
+
+## 何时处理所有@Aspect注解
+
+在创建第一个Bean的实例化时，会调用AnnotationAwareAspectJAutoProxyCreator，其中的buildAspectJAdvisors方法会去加载当前所有beanDefinition中判断是否标注Aspect直接，即`this.advisorFactory.isAspect`方法，如果是则将内部方法全部转换为Advisor，并缓存到advisorsCache中。
+
+![](./images/spring/AOP加载.png)
+
+## 实际AOP代理对象的生成时机
+
+实际创建增强代理对象是在doCreateBean方法中调用initializeBean(beanName, exposedObject, mbd)内会调用
+```java
+		Object wrappedBean = bean;
+		if (mbd == null || !mbd.isSynthetic()) {
+			wrappedBean = applyBeanPostProcessorsBeforeInitialization(wrappedBean, beanName);
+		}
+
+		try {
+			invokeInitMethods(beanName, wrappedBean, mbd);
+		}
+		catch (Throwable ex) {
+			throw new BeanCreationException(
+					(mbd != null ? mbd.getResourceDescription() : null),
+					beanName, "Invocation of init method failed", ex);
+		}
+		if (mbd == null || !mbd.isSynthetic()) {
+			wrappedBean = applyBeanPostProcessorsAfterInitialization(wrappedBean, beanName);
+		}
+```
+applyBeanPostProcessorsBeforeInitialization两个方法进行增强，即调用之前注册的AnnotationAwareAspectJAutoProxyCreator。
+在内部会将切面方法进行转换为Advisor，获取表达式切点等。
+[详细链接](https://pdai.tech/md/spring/spring-x-framework-aop-source-1.html#%E6%B3%A8%E8%A7%A3%E5%88%87%E9%9D%A2%E4%BB%A3%E7%90%86%E5%88%9B%E5%BB%BA%E7%B1%BB-annotationawareaspectjautoproxycreator)
+
+**总结**：
+1. 由IOC Bean加载方法栈中找到parseCustomElement方法，找到parse aop:aspectj-autoproxy的handler(org.springframework.aop.config.AopNamespaceHandler)
+2. AopNamespaceHandle中注册了<aop:aspectj-autoproxy/>的解析类是AspectJAutoProxyBeanDefinitionParser
+3. AspectJAutoProxyBeanDefinitionParser的parse 方法 通过AspectJAwareAdvisorAutoProxyCreator类去创建
+4. AspectJAwareAdvisorAutoProxyCreator实现了两类接口，BeanFactoryAware和BeanPostProcessor；根据Bean生命周期方法找到两个核心方法：postProcessBeforeInstantiation和postProcessAfterInitialization 
+    1. postProcessBeforeInstantiation：主要是处理使用了@Aspect注解的切面类，然后将切面类的所有切面方法根据使用的注解生成对应Advice，并将Advice连同切入点匹配器和切面类等信息一并封装到Advisor
+    2. postProcessAfterInitialization：主要负责将Advisor注入到合适的位置，创建代理（cglib或jdk)，为后面给代理进行增强实现做准备。
+
+## 动态代理的两种方式
+1. 基于CgLib代理，基于ASM字节码操作来生成代理类。实际运行时会生成多个class文件，一个继承自目标类，内部增加切面定义的增强方法并通过父类调用的形式调用父类方法。其余class文件用于解决方法内部调用的问题，但是spring为了让CgLib与JDK动态代理最终效果一致默认并未开启。配置exposeProxy可以开启自调用的增强。
+![](./images/spring/cglib代理.png)
+2. JDK代理
+JDK动态代理是有JDK提供的工具类Proxy实现的，动态代理类是在运行时生成指定接口的代理类，每个代理实例（实现需要代理的接口）都有一个关联的调用处理程序对象，此对象实现了InvocationHandler，最终的业务逻辑是在InvocationHandler实现类的invoke方法上。
+
