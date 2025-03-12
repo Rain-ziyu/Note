@@ -1,4 +1,4 @@
-# SringBoot
+# SpringBoot
 
 虽然Spring的组件代码是轻量级的，但它的配置却是重量级的。一开始，Spring用XML配置，而且是很多XML配置。Spring 2.5引入了基于注解的组件扫描，这消除了大量针对应用程序自身组件的显式XML配置。Spring 3.0引入了基于Java的配置，这是一种类型安全的可重构配置方式，可以代替XML。
 
@@ -8,7 +8,7 @@
 1. jsp中要写很多代码、控制器过于灵活,缺少一个公用控制器 
 2. Spring不支持分布式,这也是EJB仍然在用的原因之一。
 
-因此SpringBoot对上述Spring的缺点进行的改善和优化，基于约定优于配置的思想，可以让开发人员不必在配置与逻辑业务之间进行思维的切换，全身心的投入到逻辑业务的代码编写中，从而大大提高了开发的效率，一定程度上缩短了项目周期。
+因此SpringBoot对上述Spring的缺点进行了改善和优化，基于约定优于配置的思想，可以让开发人员不必在配置与逻辑业务之间进行思维的切换，全身心地投入到逻辑业务的代码编写中，从而大大提高了开发的效率，一定程度上缩短了项目周期。
 
 ## 特点
 1. 为基于Spring的开发提供更快的入门体验
@@ -21,3 +21,249 @@ SpringBoot不是对Spring功能上的增强，而是提供了一种快速使用S
 起步依赖本质上是一个Maven项目对象模型（Project Object Model，POM），定义了对其他库的传递依赖，这些东西加在一起即支持某项功能。简单的说，起步依赖就是将具备某种功能的坐标打包到一起，并提供一些默认的功能。
 ### 自动配置
 Spring Boot的自动配置是一个运行时（更准确地说，是应用程序启动时）的过程，考虑了众多因素，才决定Spring配置应该用哪个，不该用哪个。该过程是Spring自动完成的。
+
+# 拓展使用
+
+## 日志框架拓展
+
+### 配置要点
+> 在配置日志时需要考虑哪些因素？
+
+* 支持日志路径，日志level等配置
+* 日志控制能够通过application.yml控制
+* 按天生成日志，当天的日志>50MB进行切割存放等
+* 最多保存10天日志
+* 设置自定义Pattern，生成满足自己要求的格式
+* 可以根据不同环境设置不同的日志配置，比如生产环境仅设置到INFO级别、某些核心类关闭生产环境的打印
+* 在生产上尽量关闭Location等消耗资源的信息
+* 对于落盘的日志采用按小时、按日志级别等来分别存储
+* 控制一些三方包的日志级别及输出路径方便查找
+* 针对一些复杂配置可以翻阅对应日志实现的官方文档，其实官方已经提供了比较完善的功能，比如集成消息队列、异步Http告警等。
+
+## 开发式SpringBoot常用注解快速解析
+
+### @SpringBootApplication
+定义在main方法入口类处，用于启动Spring Boot应用项目，同时引入ComponentScan、Configuration、自动注入（EnableAutoConfiguration）等。
+
+```java
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@Inherited
+@Configuration
+@EnableAutoConfiguration
+@ComponentScan
+public @interface SpringBootApplication {
+
+	/**
+	 * Exclude specific auto-configuration classes such that they will never be applied.
+	 * @return the classes to exclude
+	 */
+	Class<?>[] exclude() default {};
+
+}
+```
+### @EnableAutoConfiguration
+
+让Spring Boot根据当前项目类路径中的jar包具有的依赖进行自动配置一些基础组件
+
+自动注入的所有相关Configuration在src/main/resources的META-INF/spring.factories中
+```shell
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+org.springframework.boot.autoconfigure.admin.SpringApplicationAdminJmxAutoConfiguration,\
+org.springframework.boot.autoconfigure.aop.AopAutoConfiguration
+
+若有多个自动配置，用“，”隔开
+```
+### @ImportResource
+
+指定额外的xml配置，一般放到启动main类上
+```java
+@ImportResource("classpath*:/spring/*.xml")  //单个
+
+@ImportResource({"classpath*:/spring/1.xml","classpath*:/spring/2.xml"})   //多个
+
+```
+
+### @Value
+
+读入配置文件中指定的配置项的值
+```java
+public class A{
+	 @Value("${push.start:0}")    //如果缺失，默认值为0
+     private Long  id;
+}
+```
+
+### @ConfigurationProperties(prefix="person")
+
+读取指定配置文件中指定层级之后的配置项作为类中的属性值，prefix指定properties的配置的前缀，通过location指定properties文件的位置。需要注意的是该注解不会将类生成bean注册到ioc容器中，需要你自己添加@Component、@EnableConfigurationProperties等方式显式启用配置属性绑定和 Bean 注册。
+```java
+@ConfigurationProperties(prefix="person")
+public class PersonProperties {
+	
+	private String name ;
+	private int age;
+}
+```
+
+### @EnableConfigurationProperties
+
+用 @EnableConfigurationProperties注解使 @ConfigurationProperties生效，并将对应的配置类注册为bean。
+
+### @RestController
+
+组合@Controller和@ResponseBody，当你开发一个和页面交互数据的Controller时，可以使用此注解。
+用来映射web请求(访问路径和参数)、处理类和方法，可以注解在类或方法上。注解在方法上的路径会继承注解在类上的路径。
+
+### @RequestMapping
+用来映射web请求(访问路径和参数)、处理类和方法，可以注解在类或方法上。
+
+注解在方法上的路径会继承注解在类上的路径。
+
+produces属性: 定制返回的response的媒体类型和字符集，或需返回值是json对象
+```java
+@RequestMapping(value="/api2/copper",produces="application/json;charset=UTF-8",method = RequestMethod.POST)
+```
+
+### @RequestParam
+获取request请求url后的参数值
+```java
+ public List<CopperVO> getOpList(HttpServletRequest request,
+                                    @RequestParam(value = "pageIndex", required = false) Integer pageIndex,
+                                    @RequestParam(value = "pageSize", required = false) Integer pageSize) {
+ 
+  }
+```
+### @ResponseBody
+
+持将返回值放在response体内，而不是返回一个页面。比如Ajax接口，可以用此注解返回数据而不是页面。此注解可以放置在返回值前或方法前。
+另一个玩法，可以不用@ResponseBody。
+继承FastJsonHttpMessageConverter类并对writeInternal方法扩展，在spring响应结果时，再次拦截、加工结果
+```java
+
+// stringResult: json返回结果
+//HttpOutputMessage outputMessage
+
+ byte[] payload = stringResult.getBytes();
+ outputMessage.getHeaders().setContentType(META_TYPE);
+ outputMessage.getHeaders().setContentLength(payload.length);
+ outputMessage.getBody().write(payload);
+ outputMessage.getBody().flush();
+```
+
+### @Bean
+@Bean(name="bean的名字",initMethod="初始化时调用方法名字",destroyMethod="close")
+定义在方法上，在容器内初始化一个bean实例类。
+```java
+@Bean(destroyMethod="close")
+@ConditionalOnMissingBean
+public PersonService registryService() {
+		return new PersonService();
+}
+```
+### @Service
+用于标注业务层组件
+
+### @Controller
+
+用于标注控制层组件(如struts中的action)
+### @Repository
+
+用于标注数据访问组件，即DAO组件
+### @Component
+
+泛指组件，当组件不好归类的时候，我们可以使用这个注解进行标注。
+### @PostConstruct
+使得该方法在 Bean 初始化完成之后、依赖注入完成之后 自动执行。通常用于执行一些初始化逻辑。
+### @PathVariable
+用来获得请求url中的动态参数
+```java
+@Controller  
+public class TestController {  
+
+     @RequestMapping(value="/user/{userId}/roles/{roleId}",method = RequestMethod.GET)  
+     public String getLogin(@PathVariable("userId") String userId,  
+         @PathVariable("roleId") String roleId){
+           
+         System.out.println("User Id : " + userId);  
+         System.out.println("Role Id : " + roleId);  
+         return "hello";  
+     
+     }  
+}
+```
+### @ComponentScan
+
+告知Spring需要扫描哪些包下的bean定义
+
+### @Autowired
+在默认情况下使用 @Autowired 注释进行自动注入时，Spring 容器中匹配的候选 Bean 数目必须有且仅有一个。当找不到一个匹配的 Bean 时，Spring 容器将抛出 BeanCreationException 异常，并指出必须至少拥有一个匹配的 Bean。
+当存在多个相同实现类时，spring会通过 Bean 名称自动匹配
+
+    如果字段名称与某个 Bean 的名称一致，Spring 会自动匹配并注入该 Bean。
+
+    这种方式依赖于字段命名，不够直观，不推荐使用。
+当不能确定 Spring 容器中一定拥有某个类的 Bean 时，可以在需要自动注入该类 Bean 的地方可以使用 @Autowired(required = false)，这等于告诉 Spring: 在找不到匹配 Bean 时也不报错
+### @Configuration
+配置类，需要注意的是在configuration中的@bean方法如果被类内其他方法调用，那么实际上只会被调用一次，因为@Configuration进行了AOP增强。
+```java
+@Configuration("name")//表示这是一个配置信息类,可以给这个配置类也起一个名称
+@ComponentScan("spring4")//类似于xml中的<context:component-scan base-package="spring4"/>
+public class Config {
+
+    @Autowired//自动注入，如果容器中有多个符合的bean时，需要进一步明确
+    @Qualifier("compent")//进一步指明注入bean名称为compent的bean
+    private Compent compent;
+
+    @Bean//类似于xml中的<bean id="newbean" class="spring4.Compent"/>
+    public Compent newbean(){
+        return new Compent();
+    }   
+}
+```
+### EnableZuulProxy
+路由网关的主要目的是为了让所有的微服务对外只有一个接口，我们只需访问一个网关地址，即可由网关将所有的请求代理到不同的服务中。Spring Cloud是通过Zuul来实现的，支持自动路由映射到在Eureka Server上注册的服务。Spring Cloud提供了注解@EnableZuulProxy来启用路由代理。
+### @Import(Config1.class)
+
+即向IOC容器中注入指定的类，可以是@Configuration, ImportSelector, ImportBeanDefinitionRegistrar, or regular component 标注的需要导入的类
+### @Order
+@Order(1)，值越小优先级超高，越先运行
+### @ConditionalOnExpression
+当指定配置项为true时才创建对应的Bean
+```java
+@Configuration
+@ConditionalOnExpression("${enabled:false}")
+public class BigpipeConfiguration {
+    @Bean
+    public OrderMessageMonitor orderMessageMonitor(ConfigContext configContext) {
+        return new OrderMessageMonitor(configContext);
+    }
+}
+```
+### @ConditionalOnProperty
+通过判断其某几个属性name以及havingValue（对应的值）来判断是否注入对应Bean，其中name用来从application.properties中读取某个属性值，如果该值为空，则返回false;如果值不为空，则将该值与havingValue指定的值进行比较，如果一样则返回true;否则返回false。如果返回值为false，则该configuration不生效；为true则生效。
+
+### @ConditionalOnClass
+
+该注解的参数对应的类必须存在，否则不解析该注解修饰的配置类
+```java
+@Configuration
+@ConditionalOnClass({Gson.class})
+public class GsonAutoConfiguration {
+    public GsonAutoConfiguration() {
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public Gson gson() {
+        return new Gson();
+    }
+}
+```
+### @ConditionalOnMisssingClass({ApplicationManager.class})
+
+如果存在它修饰的类的bean，则不需要再创建这个bean；
+
+### @ConditionOnMissingBean(name = "example")
+表示如果name为“example”的bean存在，该注解修饰的代码块不执行。
