@@ -267,3 +267,143 @@ public class GsonAutoConfiguration {
 
 ### @ConditionOnMissingBean(name = "example")
 表示如果name为“example”的bean存在，该注解修饰的代码块不执行。
+
+### @ControllerAdvice
+众所周知@ControllerAdvice是用来配合@ExceptionHandler进行Controller层的全局统一异常处理的，但是其实@ControllerAdvice还有其他用途：
+
+#### 结合@InitBinder注解
+用于请求中注册自定义参数的解析，从而达到自定义请求参数格式的目的；
+
+比如，在@ControllerAdvice注解的类中添加如下方法，来统一处理日期格式的格式化
+@InitBinder注解
+主要用于处理请求参数（如查询参数、表单数据）的绑定，而不是直接处理请求体中的 JSON 数据。因此，在 @InitBinder 中注册的 CustomDateEditor 不会自动处理 JSON 请求体中的时间字段。
+
+以下是将URL上的非标准时间转换为Date
+```java
+@InitBinder
+public void handleInitBinder(WebDataBinder dataBinder){
+    dataBinder.registerCustomEditor(Date.class,
+            new CustomDateEditor(new SimpleDateFormat("yyyy-MM-dd"), false));
+}
+
+@GetMapping("testDate")
+public Date processApi(Date date) {
+    return date;
+}
+```
+#### 结合@ModelAttribute注解
+
+用来预设全局参数，比如最典型的使用Spring Security时将添加当前登录的用户信息（UserDetails)作为参数。
+
+然后所有controller类中requestMapping方法都可以直接获取并使用currentUser。
+示例如下：
+```java
+@ModelAttribute("currentUser")
+public UserDetails modelAttribute() {
+    return (UserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+}
+@PostMapping("saveSomething")
+public ResponseEntity<String> saveSomeObj(@ModelAttribute("currentUser") UserDetails operator) {
+    // 保存操作，并设置当前操作人员的ID（从UserDetails中获得）
+    return ResponseEntity.success("ok");
+}
+```
+#### @ControllerAdvice是如何起作用的（原理）？
+
+DispatcherServlet中onRefresh方法是初始化ApplicationContext后的回调方法，它会调用initStrategies方法，主要更新一些servlet需要使用的对象，包括国际化处理，requestMapping，视图解析等等。
+
+而在DispatcherServlet中onRefresh中会调用一下内容：
+```java
+	/**
+	 * This implementation calls {@link #initStrategies}.
+	 */
+	@Override
+	protected void onRefresh(ApplicationContext context) {
+		initStrategies(context);
+	}
+
+	/**
+	 * Initialize the strategy objects that this servlet uses.
+	 * <p>May be overridden in subclasses in order to initialize further strategy objects.
+	 */
+	protected void initStrategies(ApplicationContext context) {
+		initMultipartResolver(context);
+		initLocaleResolver(context);
+		initThemeResolver(context);
+		initHandlerMappings(context);
+		initHandlerAdapters(context);
+		initHandlerExceptionResolvers(context);
+		initRequestToViewNameTranslator(context);
+		initViewResolvers(context);
+		initFlashMapManager(context);
+	}
+```
+从上述代码看，如果要提供@ControllerAdvice提供的三种注解功能，从设计和实现的角度肯定是实现的代码需要放在initStrategies方法中。
+
+##### @ModelAttribute和@InitBinder处理
+具体来看，如果你是设计者，很显然容易想到：对于@ModelAttribute提供的参数预置和@InitBinder注解提供的预处理方法应该是放在一个方法中的，因为它们都是在进入requestMapping方法前做的操作。
+
+如下方法是获取所有的HandlerAdapter，无非就是从BeanFactory中获取。
+```java
+	/**
+	 * Initialize the HandlerAdapters used by this class.
+	 * <p>If no HandlerAdapter beans are defined in the BeanFactory for this namespace,
+	 * we default to SimpleControllerHandlerAdapter.
+	 */
+	private void initHandlerAdapters(ApplicationContext context) {
+		this.handlerAdapters = null;
+
+		if (this.detectAllHandlerAdapters) {
+			// Find all HandlerAdapters in the ApplicationContext, including ancestor contexts.
+			Map<String, HandlerAdapter> matchingBeans =
+					BeanFactoryUtils.beansOfTypeIncludingAncestors(context, HandlerAdapter.class, true, false);
+			if (!matchingBeans.isEmpty()) {
+				this.handlerAdapters = new ArrayList<>(matchingBeans.values());
+				// We keep HandlerAdapters in sorted order.
+				AnnotationAwareOrderComparator.sort(this.handlerAdapters);
+			}
+		}
+		else {
+			try {
+				HandlerAdapter ha = context.getBean(HANDLER_ADAPTER_BEAN_NAME, HandlerAdapter.class);
+				this.handlerAdapters = Collections.singletonList(ha);
+			}
+			catch (NoSuchBeanDefinitionException ex) {
+				// Ignore, we'll add a default HandlerAdapter later.
+			}
+		}
+
+		// Ensure we have at least some HandlerAdapters, by registering
+		// default HandlerAdapters if no other adapters are found.
+		if (this.handlerAdapters == null) {
+			this.handlerAdapters = getDefaultStrategies(context, HandlerAdapter.class);
+			if (logger.isTraceEnabled()) {
+				logger.trace("No HandlerAdapters declared for servlet '" + getServletName() +
+						"': using default strategies from DispatcherServlet.properties");
+			}
+		}
+	}
+```
+我们要处理的是requestMapping的handlerResolver，作为设计者，就很容易出如下的结构
+
+在RequestMappingHandlerAdapter中的afterPropertiesSet去处理advice
+```java
+	@Override
+	public void afterPropertiesSet() {
+		// Do this first, it may add ResponseBody advice beans
+		initControllerAdviceCache();
+
+		if (this.argumentResolvers == null) {
+			List<HandlerMethodArgumentResolver> resolvers = getDefaultArgumentResolvers();
+			this.argumentResolvers = new HandlerMethodArgumentResolverComposite().addResolvers(resolvers);
+		}
+		if (this.initBinderArgumentResolvers == null) {
+			List<HandlerMethodArgumentResolver> resolvers = getDefaultInitBinderArgumentResolvers();
+			this.initBinderArgumentResolvers = new HandlerMethodArgumentResolverComposite().addResolvers(resolvers);
+		}
+		if (this.returnValueHandlers == null) {
+			List<HandlerMethodReturnValueHandler> handlers = getDefaultReturnValueHandlers();
+			this.returnValueHandlers = new HandlerMethodReturnValueHandlerComposite().addHandlers(handlers);
+		}
+	}
+```
