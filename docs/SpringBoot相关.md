@@ -407,3 +407,135 @@ DispatcherServlet中onRefresh方法是初始化ApplicationContext后的回调方
 		}
 	}
 ```
+实际处理ControllerAdvice的缓存初始化
+```java
+	private void initControllerAdviceCache() {
+		if (getApplicationContext() == null) {
+			return;
+		}
+
+		List<ControllerAdviceBean> adviceBeans = ControllerAdviceBean.findAnnotatedBeans(getApplicationContext());
+
+		List<Object> requestResponseBodyAdviceBeans = new ArrayList<>();
+
+		for (ControllerAdviceBean adviceBean : adviceBeans) {
+			Class<?> beanType = adviceBean.getBeanType();
+			if (beanType == null) {
+				throw new IllegalStateException("Unresolvable type for ControllerAdviceBean: " + adviceBean);
+			}
+            // 缓存所有modelAttribute注解方法
+			Set<Method> attrMethods = MethodIntrospector.selectMethods(beanType, MODEL_ATTRIBUTE_METHODS);
+			if (!attrMethods.isEmpty()) {
+				this.modelAttributeAdviceCache.put(adviceBean, attrMethods);
+			}
+            // 缓存所有initBinder注解方法
+			Set<Method> binderMethods = MethodIntrospector.selectMethods(beanType, INIT_BINDER_METHODS);
+			if (!binderMethods.isEmpty()) {
+				this.initBinderAdviceCache.put(adviceBean, binderMethods);
+			}
+			if (RequestBodyAdvice.class.isAssignableFrom(beanType) || ResponseBodyAdvice.class.isAssignableFrom(beanType)) {
+				requestResponseBodyAdviceBeans.add(adviceBean);
+			}
+		}
+
+		if (!requestResponseBodyAdviceBeans.isEmpty()) {
+			this.requestResponseBodyAdvice.addAll(0, requestResponseBodyAdviceBeans);
+		}
+
+		if (logger.isDebugEnabled()) {
+			int modelSize = this.modelAttributeAdviceCache.size();
+			int binderSize = this.initBinderAdviceCache.size();
+			int reqCount = getBodyAdviceCount(RequestBodyAdvice.class);
+			int resCount = getBodyAdviceCount(ResponseBodyAdvice.class);
+			if (modelSize == 0 && binderSize == 0 && reqCount == 0 && resCount == 0) {
+				logger.debug("ControllerAdvice beans: none");
+			}
+			else {
+				logger.debug("ControllerAdvice beans: " + modelSize + " @ModelAttribute, " + binderSize +
+						" @InitBinder, " + reqCount + " RequestBodyAdvice, " + resCount + " ResponseBodyAdvice");
+			}
+		}
+	}
+```
+
+#### @ExceptionHandler处理
+@ExceptionHandler应该是在请求被处理之后显然是在上述initHandlerExceptionResolvers(context)方法中。
+
+同样的，从BeanFactory中获取HandlerExceptionResolver
+```java
+	/**
+	 * Initialize the HandlerExceptionResolver used by this class.
+	 * <p>If no bean is defined with the given name in the BeanFactory for this namespace,
+	 * we default to no exception resolver.
+	 */
+	private void initHandlerExceptionResolvers(ApplicationContext context) {
+		this.handlerExceptionResolvers = null;
+
+		if (this.detectAllHandlerExceptionResolvers) {
+			// Find all HandlerExceptionResolvers in the ApplicationContext, including ancestor contexts.
+			Map<String, HandlerExceptionResolver> matchingBeans = BeanFactoryUtils
+					.beansOfTypeIncludingAncestors(context, HandlerExceptionResolver.class, true, false);
+			if (!matchingBeans.isEmpty()) {
+				this.handlerExceptionResolvers = new ArrayList<>(matchingBeans.values());
+				// We keep HandlerExceptionResolvers in sorted order.
+				AnnotationAwareOrderComparator.sort(this.handlerExceptionResolvers);
+			}
+		}
+		else {
+			try {
+				HandlerExceptionResolver her =
+						context.getBean(HANDLER_EXCEPTION_RESOLVER_BEAN_NAME, HandlerExceptionResolver.class);
+				this.handlerExceptionResolvers = Collections.singletonList(her);
+			}
+			catch (NoSuchBeanDefinitionException ex) {
+				// Ignore, no HandlerExceptionResolver is fine too.
+			}
+		}
+
+		// Ensure we have at least some HandlerExceptionResolvers, by registering
+		// default HandlerExceptionResolvers if no other resolvers are found.
+		if (this.handlerExceptionResolvers == null) {
+			this.handlerExceptionResolvers = getDefaultStrategies(context, HandlerExceptionResolver.class);
+			if (logger.isTraceEnabled()) {
+				logger.trace("No HandlerExceptionResolvers declared in servlet '" + getServletName() +
+						"': using default strategies from DispatcherServlet.properties");
+			}
+		}
+	}
+```
+过程中会找到ExceptionHandlerExceptionResolver进行初始化ExceptionHandlerAdviceCache。
+```java
+	private void initExceptionHandlerAdviceCache() {
+		if (getApplicationContext() == null) {
+			return;
+		}
+
+		List<ControllerAdviceBean> adviceBeans = ControllerAdviceBean.findAnnotatedBeans(getApplicationContext());
+		for (ControllerAdviceBean adviceBean : adviceBeans) {
+			Class<?> beanType = adviceBean.getBeanType();
+			if (beanType == null) {
+				throw new IllegalStateException("Unresolvable type for ControllerAdviceBean: " + adviceBean);
+			}
+			ExceptionHandlerMethodResolver resolver = new ExceptionHandlerMethodResolver(beanType);
+			if (resolver.hasExceptionMappings()) {
+				this.exceptionHandlerAdviceCache.put(adviceBean, resolver);
+			}
+			if (ResponseBodyAdvice.class.isAssignableFrom(beanType)) {
+				this.responseBodyAdvice.add(adviceBean);
+			}
+		}
+
+		if (logger.isDebugEnabled()) {
+			int handlerSize = this.exceptionHandlerAdviceCache.size();
+			int adviceSize = this.responseBodyAdvice.size();
+			if (handlerSize == 0 && adviceSize == 0) {
+				logger.debug("ControllerAdvice beans: none");
+			}
+			else {
+				logger.debug("ControllerAdvice beans: " +
+						handlerSize + " @ExceptionHandler, " + adviceSize + " ResponseBodyAdvice");
+			}
+		}
+	}
+```
+
