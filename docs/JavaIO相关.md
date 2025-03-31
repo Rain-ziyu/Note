@@ -143,7 +143,7 @@ public class ZeroCopyDemo {
 }
 ```
 
-之所有说上述copy是零拷贝是因为核心的map方法在底层实现时使用了对外内存。
+之所有说上述copy是零拷贝是因为核心的map方法在底层实现时使用了堆外内存。
 
 map() 方法是 java.nio.channels.FileChannel 的抽象方法，由子类 sun.nio.ch.FileChannelImpl.java 实现，下面是和内存映射相关的核心代码：
 ```java
@@ -558,3 +558,4 @@ Linux 2.6以上的版本实现了内核级别的AIO，内核的AIO只能以 O_DI
 前面4种模型当数据从内核拷贝到应用进程缓冲区时，进程都会阻塞在 recvfrom 的调用。
 
 最后第5种异步IO模型两阶段处理都不同于前面4种IO模型。
+
