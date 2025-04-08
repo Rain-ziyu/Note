@@ -187,10 +187,12 @@ undo log是一种逻辑日志，是旧数据的备份。主要有两个作用：
 
 * 二段提交制
 更新时，先改内存中的数据页，将更新操作写入redo log日志，此时redo log进入prepare状态，然后通知MySQL Server执行完了，随时可以提交，MySQL Server将更新的SQL写入bin log，然后调用innodb接口将redo log设置为提交状态，更新完成。
-如果只是写了bin log就提交，那么忽然发生故障，主节点可以根据redo log恢复数据到最新，但是主从同步时会丢掉这部分更新的数据。
+如果只是写了redo log就标记为commit，那么忽然发生故障，主节点可以根据redo log恢复数据到最新，但是binlog没有对应记录主从同步时会丢掉这部分更新的数据。
 如果只是写binlog，然后写redo log，如果忽然发生故障，主节点根据redo log恢复数据时就会丢掉这部分数据。
     * 崩溃恢复时的判断规则（以redolog是否commit或者binlog是否完整来确定）
 
         * 如果 redo log 里面的事务是完整的，也就是已经有了 commit 标识，则直接提交；
-        * 如果 redo log 里面的事务只有完整的 prepare，则判断对应的事务 binlog 是否存在并完整： a. 如果是，则提交事务； b. 否则，回滚事务。
+        * 如果 redo log 里面的事务只有完整的 prepare，则判断对应的事务 binlog 是否存在并完整： 
+            a. 如果是，则提交事务； 
+            b. 否则，回滚事务。
 
