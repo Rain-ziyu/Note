@@ -1,3 +1,6 @@
+# 机器学习入门(/机器学习-快速上手.md)
+记录在Kaggle上进行机器学习的入门教程，主要是基于Python的机器学习库Scikit-learn。
+
 # [Dubbo](/Dubbo3.0)
 
 Dubbo微服务入门
